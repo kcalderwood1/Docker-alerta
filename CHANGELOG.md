@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.0.3](https://github.com/kcalderwood1/Docker-alerta/compare/v1.0.2...v1.0.3) (2026-02-24)
+
+### Features
+
+* MON-1120 Add lucera-alerta-ui repo
+
+## lucera-alerta-ui
+
+### 0.1.1 (2026-02-24)
+
+#### Features
+
+* MON-1120 Create lucera-alerta-ui repo ([01869c7](https://github.com/kcalderwood1/lucera-alerta-ui/commit/01869c732fe11202853a2afe09ebd1b4cddfb5ed))
+
 ## [v1.0.2](https://github.com/kcalderwood1/Docker-alerta/compare/v1.0.1...v1.0.2) (2026-02-24)
 
 ### Features
