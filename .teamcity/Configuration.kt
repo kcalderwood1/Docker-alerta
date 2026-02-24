@@ -20,7 +20,8 @@ object Configuration {
     // Define subprojects
     val SUBPROJECTS: ArrayList<ProjectDescriptor> = arrayListOf(
         ProjectDescriptor("lucera-alerta", ProjectGroup.SubProjects, ProjectType.SHELL),
-        ProjectDescriptor("lucera-alerta-plugins", ProjectGroup.SubProjects, ProjectType.SHELL)
+        ProjectDescriptor("lucera-alerta-plugins", ProjectGroup.SubProjects, ProjectType.SHELL),
+        ProjectDescriptor("lucera-alerta-ui", ProjectGroup.SubProjects, ProjectType.SHELL)
     )
 
     // Define deployments

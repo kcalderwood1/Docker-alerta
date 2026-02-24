@@ -17,3 +17,8 @@ dependency "lucera_alerta_plugins" {
   alias  = "lucera_alerta_plugins"
   source = "git::https://github.com/kcalderwood1/lucera-alerta-plugins.git//packs/lucera_alerta_plugins?ref=main&depth=1"
 }
+
+dependency "lucera_alerta_ui" {
+  alias  = "lucera_alerta_ui"
+  source = "git::https://github.com/kcalderwood1/lucera-alerta-ui.git//packs/lucera_alerta_ui?ref=main&depth=1"
+}
