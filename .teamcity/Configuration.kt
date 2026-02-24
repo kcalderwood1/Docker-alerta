@@ -19,12 +19,13 @@ object Configuration {
     const val VARS_REPO_NAME = "alerta-vars"
     // Define subprojects
     val SUBPROJECTS: ArrayList<ProjectDescriptor> = arrayListOf(
-        ProjectDescriptor("lucera-alerta", ProjectGroup.SubProjects, ProjectType.SHELL)
+        ProjectDescriptor("lucera-alerta", ProjectGroup.SubProjects, ProjectType.SHELL),
+        ProjectDescriptor("lucera-alerta-plugins", ProjectGroup.SubProjects, ProjectType.SHELL)
     )
 
     // Define deployments
     val DEPLOYMENTS: ArrayList<DeploymentDescriptor> = arrayListOf(
-        DeploymentDescriptor("daiwa", EnvironmentType.DEV),
-        DeploymentDescriptor("daiwa", EnvironmentType.PROD),
+        DeploymentDescriptor("dev", EnvironmentType.DEV),
+        DeploymentDescriptor("prod", EnvironmentType.PROD),
     )
 }
