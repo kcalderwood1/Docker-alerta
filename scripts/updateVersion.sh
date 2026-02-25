@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to update service version in DEPENDENCIES and metadata.hcl files
+# Script to update service version in DEPENDENCIES file only
 # Usage: ./updateVersion.sh <service_name> <version>
 
 set -e
@@ -33,14 +33,12 @@ if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 
-# Get the base dir (repo root when run from repo root or scripts/)
+# Get the base dir (repo root = parent of scripts/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
-source "$BASE_DIR/scripts/buildHelpers.sh"
 echo "Working directory: ${BASE_DIR}"
 
 DEPENDENCIES_FILE="$BASE_DIR/DEPENDENCIES"
-METADATA_FILE="$BASE_DIR/${PACK_PATH}/metadata.hcl"
 
 # Check if service exists in DEPENDENCIES file
 if ! grep -q "^${SERVICE_NAME}:" "$DEPENDENCIES_FILE"; then
@@ -59,14 +57,6 @@ echo "Updating $SERVICE_NAME from $CURRENT_VERSION to $VERSION"
 sed -i "s/^${SERVICE_NAME}: .*/${SERVICE_NAME}: ${VERSION}/" "$DEPENDENCIES_FILE"
 echo "Updated DEPENDENCIES file"
 
-# Update metadata.hcl file - update the ref= parameter in the dependency block
-# Match the dependency block for the service and update the ref parameter
-sed -i "/dependency \"${SERVICE_NAME}\"/,/^}/s/ref=[^&]*/ref=${VERSION}/" "$METADATA_FILE"
-echo "Updated metadata.hcl file"
-
 echo ""
 echo "Successfully updated $SERVICE_NAME to $VERSION"
-echo ""
-echo "Changes made:"
 echo "  DEPENDENCIES: ${SERVICE_NAME}: ${VERSION}"
-grep "dependency \"${SERVICE_NAME}\"" -A 3 "$METADATA_FILE" | grep "source"
