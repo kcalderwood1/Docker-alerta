@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.0.4](https://github.com/kcalderwood1/Docker-alerta/compare/v1.0.3...v1.0.4) (2026-02-25)
+
+### Features
+
+* MON-1120 Add gitignore for deps folder
+
+### Fixes
+
+* Remove metadata updates from scripts
+
 ## [v1.0.3](https://github.com/kcalderwood1/Docker-alerta/compare/v1.0.2...v1.0.3) (2026-02-24)
 
 ### Features
