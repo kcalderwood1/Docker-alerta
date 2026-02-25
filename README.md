@@ -1,6 +1,6 @@
 # docker-alerta
 
-## 1. What this repo does
+## 1. Overview
 
 **docker-alerta** is the **orchestration/release** repo. It:
 
