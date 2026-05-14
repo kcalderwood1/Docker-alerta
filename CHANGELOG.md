@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.0.5](https://github.com/kcalderwood1/Docker-alerta/compare/v1.0.4...v1.0.5) (2026-05-14)
+
+### Features
+
+* MON-1211 Change docker build image name
+* MON-1120 Update README.md
+* MON-1120 Update README.md
+
 ## [v1.0.4](https://github.com/kcalderwood1/Docker-alerta/compare/v1.0.3...v1.0.4) (2026-02-25)
 
 ### Features

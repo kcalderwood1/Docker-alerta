@@ -5,7 +5,7 @@ app {
 pack {
   name        = "alerta_release"
   description = "Alerta Release Package"
-  version     = "v1.0.4"
+  version     = "v1.0.5"
 }
 
 dependency "lucera_alerta" {
