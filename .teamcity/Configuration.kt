@@ -12,7 +12,7 @@ object Configuration {
 
     const val GIT_EMAIL = "teamcity@lucera.com"
     const val GIT_USERNAME = "teamcity"
-    const val DOCKER_BUILD_IMAGE = "repo.prd.lucera.com/lume-release-build:0.2.0"
+    const val DOCKER_BUILD_IMAGE = "repo.prd.lucera.com/devops-build:MON-1211"
 
     // Parent release project
     const val RELEASE_REPO_NAME = "Docker-alerta"
