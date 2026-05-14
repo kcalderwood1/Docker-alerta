@@ -1,92 +1,73 @@
 # docker-alerta
 
-## 1. Overview
-
-**docker-alerta** is the **orchestration/release** repo. It:
-
-- Keeps a **DEPENDENCIES** file that lists subproject names and their **release versions** (single source of truth).
-- Subprojects are **normal repos** (not nomad-packs): they have releases built in TeamCity; when they release, docker-alerta's **DEPENDENCIES** file is updated with the new version.
-- Optionally it can still define a nomad-pack under `packs/alerta_release/` (e.g. for deployment); **metadata.hcl is not kept in sync** only DEPENDENCIES is updated by the pipeline.
-
-TeamCity runs the scripts in this repo (and in subproject repos) to build, release, and update **DEPENDENCIES**.
+Orchestration repo for Alerta: it holds **DEPENDENCIES** (pinned subproject versions), TeamCity Kotlin DSL under **.teamcity/**, and scripts TeamCity runs from **scripts/**.
 
 ---
 
-## 2. Main setup points
+## Full release flow: subprojects, then docker-alerta
 
-### A. Repos and structure
+Use this order when you have pushed changes to the component repos and want a coordinated **Docker-alerta** release. The subprojects wired in TeamCity are **lucera-alerta**, **lucera-alerta-ui**, and **lucera-alerta-plugins** (see **.teamcity/Configuration.kt**).
 
-- Subproject repos (e.g. **lucera-alerta**, **lucera-alerta-ui**, **lucera-alerta-plugins**) produce releases that get recorded in docker-alerta's DEPENDENCIES.
-- In this repo you need:
-  - **scripts/** — All `.sh` scripts run by TeamCity.
-  - **DEPENDENCIES** — One line per subproject: `name: version` (e.g. `lucera_alerta: v0.1.1`). Names should use **underscores** and match the normalized subproject name TeamCity passes as `SERVICE_NAME` (repo name with `-` → `_`).
-  - **.teamcity/** — Kotlin DSL that defines the TeamCity project and build configs.
-  - Optionally **packs/alerta_release/** if you still use a nomad-pack; it is **not** updated from DEPENDENCIES.
+**At a glance:** For every component repo you touched, **push → TeamCity Build → TeamCity Release**. Each successful subproject **Release** automatically starts **Docker-alerta → Dependency Version Update**, which bumps **DEPENDENCIES** and pushes to this repo. When those jobs have finished and the pins look correct, switch to the **Docker-alerta** project in TeamCity and run **Build**, then **Release** — you do **not** skip straight to **Release** on docker-alerta without a green **Build** on the branch you are releasing.
 
-### B. TeamCity config (Kotlin DSL)
+### 1. Per subproject (repeat for each repo you changed)
 
-- **Single source of truth:** **.teamcity/Configuration.kt** — GitHub org, token param name, VCS URLs, git identity, Docker build image, release repo name, subprojects list, deployments.
-- **settings.kts** — Root project: VCS roots for subprojects and Docker-alerta (branches + tags), creates subprojects and the "Alerta release" project from config.
-- **Projects:** Subproject builds (e.g. AlertaShellProject: build + release), Docker-alerta project (build, release, dependency update, prepare release), and deployments (e.g. AlertaDeploymentProject).
-- **Generate config:** Run the TeamCity configs Maven plugin so TeamCity sees the Kotlin DSL:
+For **lucera-alerta**, **lucera-alerta-ui**, and/or **lucera-alerta-plugins**:
+
+1. Push your commits to the branch TeamCity watches (for example `main` or `release*`).
+2. Run **Build** on that subproject in TeamCity (validates the commit).
+3. Run **Release** on that subproject (cuts the component release and exposes version parameters TeamCity needs next).
+
+You only need to Build and Release the repos that actually changed. If all three changed, run Build → Release for each, in any order that fits your process (each **Release** is independent until docker-alerta).
+
+### 2. docker-alerta picks up new versions (mostly automatic)
+
+When any subproject **Release** completes successfully, TeamCity starts **Docker-alerta → Dependency Version Update** for that component. You normally **do not** start that build by hand; finish-build triggers pass `SERVICE_NAME`, `SERVICE_VERSION`, and `SERVICE_BRANCH` from the subproject **Release** into `dependencyUpdate.sh`. That job updates the matching line in **DEPENDENCIES** and **commits and pushes** to docker-alerta. If several subprojects release close together, you may see several Dependency Version Update runs; let them finish so **DEPENDENCIES** on the default or `release*` branch matches what you intend before you cut the docker-alerta **Release**.
+
+### 3. docker-alerta: Build, then Release
+
+**After** lucera-alerta / lucera-alerta-ui / lucera-alerta-plugins are built and released as needed, **yes — you then use the Docker-alerta project in TeamCity**: first **Build**, then **Release**. That is how the orchestration repo gets a proper release tag and release metadata on top of the **DEPENDENCIES** lines the dependency job already pushed.
+
+1. **Pull or wait for git** — Confirm docker-alerta’s branch has the **DEPENDENCIES** updates you expect (TeamCity may have pushed them).
+2. Run **Docker-alerta → Build** — Same idea as the subprojects: validates `./scripts/build.sh` and `./scripts/test.sh` on the current tree, including the updated pins.
+3. Run **Docker-alerta → Release** — The Release configuration **depends on Build**, so Build must have succeeded on the branch you release from (TeamCity’s snapshot dependency enforces this). Release runs `checkoutAndTagReleaseProject` and writes **tags / release metadata** for docker-alerta itself.
+
+**Summary:** subproject push → **Build** → **Release** (per changed repo) → **Dependency Version Update** updates docker-alerta’s **DEPENDENCIES** → on docker-alerta, **Build** then **Release** to publish the orchestration release.
+
+---
+
+## docker-alerta-only (quick reference)
+
+If you only changed **this** repo (no new subproject releases):
+
+1. Push → **Build** → **Release** on Docker-alerta (Release still requires a successful Build snapshot on your release branch).
+
+**Dependency Version Update** is for when a subproject **Release** finishes; it is not the step you run for “I only edited scripts or docs in docker-alerta.”
+
+---
+
+## What lives where
+
+| Path | Role |
+|------|------|
+| **DEPENDENCIES** | One line per subproject: `name: version` (underscores in names, e.g. `lucera_alerta: v0.1.1`). Updated by **Dependency Version Update**, not by syncing `metadata.hcl`. |
+| **scripts/** | Shell scripts TeamCity runs from the repo root; keep them executable (`chmod +x scripts/*.sh`). |
+| **.teamcity/** | Kotlin DSL: `Configuration.kt` for org, repos, and lists; `settings.kts` wires VCS and projects. |
+
+Optional **packs/alerta_release/** may exist for Nomad; **metadata.hcl** is not auto-updated from **DEPENDENCIES**.
+
+---
+
+## TeamCity setup (quick reference)
+
+- **Generate DSL** from the directory that contains `.teamcity` / `pom.xml`:
 
   ```bash
   mvn org.jetbrains.teamcity:teamcity-configs-maven-plugin:generate
   ```
 
-  (from the repo root that contains `.teamcity` / `pom.xml`).
+- **Parameters** scripts expect (set in TeamCity or DSL): `GITHUB_TOKEN`, `GITHUB_ORG`, `REPO_PREFIX`, `RELEASE_REPO_NAME`, `GIT_EMAIL`, `GIT_USERNAME`.
 
-### C. Credentials and parameters
+- **Subprojects** have their own **Build** and **Release** in TeamCity; their **Release** completion triggers docker-alerta **Dependency Version Update**.
 
-- **GitHub:** A personal access token (or bot token) with repo access. Stored in TeamCity as a password parameter (e.g. `MY_GITHUB_TOKEN`); scripts receive it as `env.GITHUB_TOKEN`.
-- **Config in TeamCity:** Scripts expect (set in TeamCity or in `settings.kts`):
-  - `env.GITHUB_TOKEN`
-  - `env.GITHUB_ORG`
-  - `env.REPO_PREFIX` (e.g. `https://github.com/org/`)
-  - `env.RELEASE_REPO_NAME` (e.g. `Docker-alerta`)
-  - `env.GIT_EMAIL`, `env.GIT_USERNAME` for commits.
-
-### D. Scripts and permissions
-
-- All **scripts/*.sh** must be executable (e.g. `chmod +x scripts/*.sh`; Git should record 100755).
-- TeamCity runs them from the **repo root** (e.g. `./scripts/build.sh`).
-
-### E. DEPENDENCIES only (no metadata.hcl sync)
-
-- **DEPENDENCIES** is the only file updated by the pipeline for dependency versions. Format: one line per subproject, `name: version` (e.g. `lucera_alerta: v0.1.1`). Names must match the **normalized** subproject name (underscores) that TeamCity sends when triggering the Dependency Version Update.
-- **metadata.hcl** (if present under `packs/alerta_release/`) is **not** updated from DEPENDENCIES; it can be maintained manually or left static.
-- **updateVersion.sh** — Updates **only** DEPENDENCIES for a given service and version.
-- **synchronizeVersions.sh** — Only **reports** the contents of DEPENDENCIES (no writing to metadata.hcl, no git operations).
-
----
-
-## 3. How it runs in TeamCity (flow)
-
-### Subproject (e.g. lucera-alerta-plugins)
-
-- **Build:** VCS trigger → checkout → run `./scripts/build.sh` (and test if present).
-- **Release:** On release branch → run release (e.g. `release-it-containerized`) → set `SERVICE_VERSION` / `SERVICE_BRANCH` and publish.
-
-### docker-alerta (this repo)
-
-- **Build:** VCS trigger → checkout → run `./scripts/build.sh` (which runs **synchronizeVersions.sh** to report DEPENDENCIES only; no metadata.hcl sync).
-- **Dependency Version Update:** Triggered when a subproject's Release finishes → runs **dependencyUpdate.sh** with `SERVICE_NAME`, `SERVICE_VERSION`, `SERVICE_BRANCH` → checks out docker-alerta and runs **updateVersion.sh** to update **DEPENDENCIES** only → commit and push.
-- **Release:** Runs `checkoutAndTagReleaseProject` (tag, update version, create GitHub release with pack archive if used).
-- **Prepare Release Branch:** Runs `prepareReleaseBranches` for release branching.
-
-### Deployments
-
-- Separate build type per deployment × environment; uses the tags VCS root of docker-alerta; runs validate/deploy steps (you fill in real deploy logic).
-
----
-
-## 4. Checklist summary
-
-| Area         | What to do                                                                                                                                   |
-|--------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| Repo         | Clone docker-alerta; ensure **scripts/**, **DEPENDENCIES**, **.teamcity/** present.                                                          |
-| TeamCity     | Load Kotlin DSL (generate configs); create/attach VCS root(s) for docker-alerta and subprojects as in config.                                |
-| Credentials  | Set GitHub token as password param; pass **GITHUB_TOKEN**, **GITHUB_ORG**, **REPO_PREFIX**, **RELEASE_REPO_NAME**, git user/email to builds. |
-| Scripts      | Ensure all **scripts/*.sh** are executable (100755) and run from repo root.                                                                  |
-| DEPENDENCIES | Only file updated for dependency versions. Keys = normalized subproject names (underscores). metadata.hcl is not synced from DEPENDENCIES.   |
-| Config       | In **.teamcity/Configuration.kt** set real **GITHUB_ORG** and repo names (replace any placeholder like "org" in `https://github.com/org/`).  |
+- Adjust **.teamcity/Configuration.kt** for your GitHub org and repository names before relying on production builds.
